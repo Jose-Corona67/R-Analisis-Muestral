@@ -1,0 +1,263 @@
+---
+title: "Resumen"
+author: "Corona López José Luis"
+date: "2024-09-10"
+output: pdf_document
+---
+
+## Muestreo
+
+### Muestreo Simple
+
+```{r}
+#install.packages("babynames")
+library(babynames)
+set.seed(123)
+nombres <- sample(babynames$name, 20000, replace = FALSE)
+```
+
+### Muestreo Sistematico
+
+```{r}
+población <- 1500 # Total de individuos
+muestra <- 300 # Muestra que queremos
+frecuencia <- población/muestra
+print(frecuencia)
+set.seed(345)
+inicio <- sample(1:frecuencia, 1, replace = FALSE)
+print(inicio)
+
+secuencia <- seq(inicio, población, frecuencia)
+print(secuencia)
+length(secuencia)
+
+#base_muestra <- base_asegurado[secuencia,] # [Filas que quiero, Columnas que quiero]
+```
+
+### Muetreo Estratificado
+
+```{r}
+set.seed(678)
+data <- data.frame(Nombre=sample(babynames$name,1000,replace =FALSE),Region=sample(c("Norte","Centro","Sur"),1000,replace=TRUE))
+table(data$Region) #Centro 342, Norte 327, Sur 331
+library(dplyr)
+data_centro <- data%>% filter(Region== "Centro")
+data_norte <- data%>% filter(Region== "Norte")
+data_sur <- data%>% filter(Region== "Sur")
+posiciones_centro <- sample(1:length(data_centro$Nombre),200, replace=FALSE)
+posiciones_norte <- sample(1:length(data_norte$Nombre),200, replace=FALSE)
+posiciones_sur <- sample(1:length(data_sur$Nombre),200, replace=FALSE)
+#Mostramos la informacion de los sujetos que formaran parte de la muestra 
+muestra_centro <- data_centro[posiciones_centro,]
+muestra_norte <- data_norte[posiciones_norte,]
+muestra_sur <- data_sur[posiciones_sur,]
+#Unimos en una sola base de datos
+muestra_data <- rbind(muestra_centro, muestra_norte,muestra_sur)
+```
+
+### Muestreo Estratificado Proporcional (MEP)
+
+```{r}
+library(babynames)
+
+set.seed(615)
+
+
+#Generamos una base de datos
+
+data <- data.frame(Nombre=sample(babynames$name,1000,replace =FALSE),Region=sample(c("Norte","Centro","Sur"),1000,replace=TRUE))
+
+table(data$Region)
+#Centro 307, Norte 349, Sur 344
+
+C <- 307/1000
+N <- 349/1000
+S <- 344/1000
+
+Prop_C <- round(C*600,0)
+Prop_N <- round(N*600,0)
+Prop_S <- round(S*600,0)
+
+library(dplyr)
+
+d_centro <- data%>% filter(Region== "Centro")
+d_norte <- data%>% filter(Region== "Norte")
+d_sur <- data%>% filter(Region== "Sur")
+
+posiciones_centro <- sample(1:length(d_centro$Nombre),Prop_C, replace=FALSE)
+posiciones_norte <- sample(1:length(d_norte$Nombre),Prop_N, replace=FALSE)
+posiciones_sur <- sample(1:length(d_sur$Nombre),Prop_S, replace=FALSE)
+
+
+m_centro <- d_centro[posiciones_centro,]
+m_norte <- d_norte[posiciones_norte,]
+m_sur <- d_sur[posiciones_sur,]
+
+muestra_data_prop <- rbind(m_centro, m_norte,m_sur)
+```
+
+## Proporciones
+
+### Intervalo de confianza cuando no se tiene a toda la población
+
+```{r}
+intervalo_confianza_p <- function(exitos, n, nivel_confianza){
+  p_muestral <- exitos / n
+  q_muestral <- 1 - p_muestral
+  alfa <- 1 - nivel_confianza
+  v_critico <- qnorm(1-alfa/2,lower.tail = TRUE)
+  error <- round(v_critico * sqrt(p_muestral * q_muestral /n),3)
+  inferior <- p_muestral - error
+  superior <- p_muestral + error
+  cat("Tenemos una confianza del", nivel_confianza, "% de que el intervalo (", inferior,",",superior,") realmente contenga el valor verdadero de p")
+}
+```
+
+### Tamaño de muestra cuando no se tiene a toda la población
+
+```{r}
+n_proporciones <- function(nivel_confianza, p_muestral, error){
+  alfa <- 1 - nivel_confianza
+  v_critico <- qnorm(1 - alfa/2, lower.tail = TRUE)
+  q_muestral <- 1 - p_muestral
+  n <- ceiling((v_critico^2 *  p_muestral*q_muestral)/error^2)
+  print(n)
+}
+```
+
+### Intervalo de confianza cuando se tiene a toda la población
+
+```{r}
+int_conf_prop <-  function(exitos, n, nivel_confianza, N){
+  p_muestral <- exitos / n
+  q_muestral <- 1 - p_muestral
+  alfa <- 1 - nivel_confianza
+  v_critico <- qnorm(1 - alfa / 2, lower.tail = TRUE)
+  error <- round(v_critico * sqrt((p_muestral*q_muestral) / n) * sqrt((N-n)/(N-1)), 3)
+  inferior <- p_muestral - error
+  superior <- p_muestral + error
+  cat(inferior,",",superior)
+}
+```
+
+### Tamaño de muestra cuando se tiene a toda la población
+
+```{r}
+# Función tamaño N
+n_prop <- function(nivel_confianza, p_muestral, error, N){
+ alfa <- 1 - nivel_confianza
+ v_critico <- qnorm(1 - alfa/2, lower.tail = TRUE)
+ q_muestral <- 1 - p_muestral
+ 
+ n <- N/((error/v_critico)^2*((N-1)/(p_muestral*q_muestral))+1)
+ print(n)
+}
+```
+
+## Media
+
+### Intervalo de confianza cuando sigma se conoce y no se tiene a toda población
+Si no se conoce a sigma, utilizar qt para el v_critico y los grados de diferencia serían n-1
+y verificar los supuestos
+
+Requisitos:
+1. La muestra es aleatoria simple.
+2. Cualquiera o ambas de estas condiciones se satisfacen: la población está normalmente distribuida o n>30
+
+
+```{r}
+# Verificar los requisitos:
+# 1. La muestra es aleatoria simple
+# 2. El valor de la desviación estándar poblacional es conocido
+# 3. Cualquiera o ambas de estas condiciones se satisfacen: la población está normalmente distribuida o n >30
+
+intervalo_media <- function(nivel_confianza, n, media_muestral, sigma){
+  alfa <- 1 - nivel_confianza
+  v_critico <- qnorm(1 - alfa / 2, lower.tail = TRUE)
+  error <- round(v_critico * sigma / sqrt(n), 3)
+  inferior <- media_muestral - error
+  superior <- media_muestral + error
+  cat("El intervalo de confianza para la media poblacional es:(", inferior, "," ,superior,")")
+}
+```
+
+### Tamaño de muestra cuando se conoce sigma y no se tiene a toda la población
+Si no se conoce a sigma, utilizar qt para el v_critico y los grados de diferencia sería n-1
+
+```{r}
+tamaño_muestra <- function(nivel_confianza, sigma, error){
+  alfa <- 1 - nivel_confianza
+  v_critico <- qnorm(1-alfa / 2, lower.tail = TRUE)
+  n <- (v_critico * sigma / error)^2
+  cat("El tamaño de muestra requerido es: ",n)
+}
+```
+
+### Intervalo de confianza cuando se tiene a toda población
+
+```{r}
+inter_media_N <- function(nivel_confianza, media_muestral, n, N, sigma){
+  alfa <- 1 - nivel_confianza
+  v_critico <- qnorm(1 - alfa / 2, lower.tail = TRUE)
+  error <- round(v_critico * sigma / sqrt(n) * sqrt((N-n)/(N-1)), 3)
+  inferior <- media_muestral - error
+  superior <- media_muestral + error
+  cat("El intervalo de confianza para la media poblacional con tamaño de 
+      muestra N es:(", inferior, "," ,superior,")")
+}
+```
+
+### Tamaño de la muestra cuando se tiene a toda la población
+
+```{r}
+media_n <- function(nivel_confianza, sigma, error, N){
+  alfa <- 1 - nivel_confianza
+  v_critico <- qnorm(1 - alfa / 2, lower.tail = TRUE)
+  n <- ceiling(((v_critico)^2 * sigma^2 * N)/(error^2 * (N-1) + ((v_critico)^2 * sigma^2)))
+  print(n)
+}
+```
+
+## Sigma o Desviación Estandar
+
+### Intervalo de confianza
+
+```{r}
+
+# Requisitos:
+# La muestra es aleatoria simple
+# La población debe tener valores distribuidos normalmente (aún si la muestra es grande)
+
+intervalo_sd <- function(n, nivel_confianza, sd_muestral){
+  alfa <- 1 - nivel_confianza
+  v_izquierda <- qchisq(alfa / 2, n - 1)
+  v_derecha <- qchisq(1 - alfa / 2, n - 1)
+  inferior <- sqrt(((n - 1) * sd_muestral^2) / v_derecha)
+  superior <- sqrt(((n - 1) * sd_muestral^2) / v_izquierda)
+  cat("El intervalo de confianza para estimar a la desviación estándar poblacional es :
+      (", inferior,",",superior,")")
+}
+```
+
+## Sigma Cuadrada o Varianza
+
+### Intervalo de confianza
+
+```{r}
+
+# Requisitos:
+# La muestra es aleatoria simple
+# La población debe tener valores distribuidos normalmente (aún si la muestra es grande)
+
+intervalo <- function(n, nivel_confianza, sd_muestral){
+  alfa <- 1 - nivel_confianza
+  v_izquierda <- qchisq(alfa / 2, n - 1)
+  v_derecha <- qchisq(1 - alfa / 2, n - 1)
+  inferior <- ((n - 1) * sd_muestral^2) / v_derecha
+  superior <- ((n - 1) * sd_muestral^2) / v_izquierda
+  cat("El intervalo de confianza para estimar a la varianza poblacional es : (", inferior,",",superior,")")
+}
+```
+
+
+
